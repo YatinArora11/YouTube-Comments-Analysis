@@ -10,6 +10,22 @@ import pandas as pd
 
 nltk.download('stopwords')
 tokenizer = RegexpTokenizer(r'\w+')
+nltk.download('wordnet')
+from nltk.stem import WordNetLemmatizer
+
+tokenizer = RegexpTokenizer(r'\w+')
+lemmatizer = WordNetLemmatizer()
+stop_words = set(stopwords.words('english'))
+negation_words = {
+    'no', 'not', 'never', 'none', 'neither', 'nor',
+    "don't", "doesn't", "didn't",
+    "isn't", "aren't", "wasn't", "weren't",
+    "hasn't", "haven't", "hadn't",
+    "can't", "cannot", "couldn't",
+    "won't", "wouldn't",
+    "shouldn't", "mustn't"
+}
+final_stop_words = stop_words - negation_words
 
 api_key = 'AIzaSyCCk4nvnt6E-MZgKr6sH0zVD29_KnrDVgs'
 
@@ -20,11 +36,13 @@ except FileNotFoundError:
     st.stop()
 
 def preprocess_text(text):
+    if not isinstance(text, str):
+        text = str(text)
     text = text.translate(str.maketrans('', '', string.punctuation))
     text = text.lower()
     tokens = tokenizer.tokenize(text)
-    stop_words = set(stopwords.words('english'))
-    tokens = [word for word in tokens if word not in stop_words]
+    tokens = [word for word in tokens if word not in final_stop_words]
+    tokens = [lemmatizer.lemmatize(word) for word in tokens]
     return ' '.join(tokens)
 
 def analyze_sentiment(text):
@@ -113,14 +131,36 @@ if analyze_button and url:
     if sentiment_counts.empty:
         st.warning("No sentiment results to display")
     else:
-        dominant_sentiment = sentiment_counts.idxmax()
-        positive_count = sentiment_counts.get('positive', 0)
-        negative_count = sentiment_counts.get('negative', 0)
-        neutral_count = sentiment_counts.get('neutral', 0)
+        positive_count = sentiment_counts.get('Positive', 0)
+        negative_count = sentiment_counts.get('Negative', 0)
+        neutral_count = sentiment_counts.get('Neutral', 0)
+        irrelevant_count = sentiment_counts.get('Irrelevant', 0)
 
-        if dominant_sentiment == 'positive' :
+        # Find the dominant sentiment
+        dominant_sentiment = sentiment_counts.idxmax()
+
+        st.subheader("Overall Sentiment")
+        
+        # This logic should now work as expected
+        if dominant_sentiment == 'Positive':
             st.success(f"Overall Positive Sentiment ({positive_count}/{len(df)} comments)")
-        elif dominant_sentiment == 'negative':
+        elif dominant_sentiment == 'Negative':
             st.error(f"Overall Negative Sentiment ({negative_count}/{len(df)} comments)")
-        else:
+        elif dominant_sentiment == 'Neutral':
             st.info(f"Overall Neutral Sentiment ({neutral_count}/{len(df)} comments)")
+        elif dominant_sentiment == 'Irrelevant':
+            st.info(f"Overall Irrelevant Sentiment ({irrelevant_count}/{len(df)} comments)")
+
+        # --- CORRECTED CODE: Display all counts in columns ---
+        st.subheader("All Sentiment Counts")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            # FIX: Corrected variable name from positive_tcount to positive_count
+            st.metric(label="Positive", value=positive_count)
+        with col2:
+            st.metric(label="Negative", value=negative_count)
+        with col3:
+            st.metric(label="Neutral", value=neutral_count)
+        with col4:
+            st.metric(label="Irrelevant", value=irrelevant_count)
